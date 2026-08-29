@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quorum — RFx to award, without the spreadsheet</title>
+<style>
+:root{
+  --bg:#F7F8FA; --panel:#FFFFFF; --ink:#101828; --muted:#667085; --line:#E4E7EC;
+  --accent:#E8552D; --accent-soft:#FDF0EC;
+  --ok:#12805C; --ok-soft:#E7F5F0;
+  --warn:#B54708; --warn-soft:#FEF6E7;
+  --stop:#B42318; --stop-soft:#FEF3F2;
+  --blue:#175CD3; --blue-soft:#EFF4FF;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+button{font:inherit;cursor:pointer;border:none;background:none}
+input,textarea{font:inherit}
+
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:0 24px;position:sticky;top:0;z-index:50}
+.hrow{display:flex;align-items:center;gap:16px;height:60px;max-width:1440px;margin:0 auto}
+.logo{font-weight:700;font-size:17px;letter-spacing:-.3px}
+.logo span{color:var(--accent)}
+.tag{font-size:12px;color:var(--muted);padding-left:14px;border-left:1px solid var(--line)}
+.keybox{margin-left:auto;display:flex;align-items:center;gap:8px}
+.keybox input{width:230px;padding:7px 10px;border:1px solid var(--line);border-radius:6px;font-size:12px}
+.dot{width:7px;height:7px;border-radius:50%;background:#D0D5DD}
+.dot.on{background:var(--ok)}
+
+nav{background:var(--panel);border-bottom:1px solid var(--line);padding:0 24px}
+.nrow{display:flex;gap:2px;max-width:1440px;margin:0 auto}
+.tab{padding:12px 16px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;display:flex;align-items:center;gap:8px}
+.tab.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.tab:disabled{opacity:.35;cursor:not-allowed}
+.num{width:19px;height:19px;border-radius:50%;background:var(--line);color:var(--muted);font-size:11px;display:grid;place-items:center;font-weight:600}
+.tab.on .num{background:var(--accent);color:#fff}
+.tab.done .num{background:var(--ok);color:#fff}
+
+main{max-width:1440px;margin:0 auto;padding:24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.pad{padding:20px}
+h2{font-size:17px;font-weight:600;margin-bottom:5px}
+h3{font-size:14px;font-weight:600;margin-bottom:10px}
+.sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.btn{background:var(--accent);color:#fff;padding:9px 17px;border-radius:7px;font-size:13px;font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.p-ok{background:var(--ok-soft);color:var(--ok)}
+.p-warn{background:var(--warn-soft);color:var(--warn)}
+.p-stop{background:var(--stop-soft);color:var(--stop)}
+.p-blue{background:var(--blue-soft);color:var(--blue)}
+.p-grey{background:#F2F4F7;color:var(--muted)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #F2F4F7}
+tr:hover td{background:#FCFCFD}
+.mono{font-variant-numeric:tabular-nums}
+.cell{position:relative;cursor:help}
+.cell.inf{background:var(--warn-soft)}
+.cell.miss{background:#FAFAFA;color:#98A2B3}
+.best{font-weight:700;color:var(--ok)}
+
+.tip{display:none;position:absolute;bottom:100%;left:0;background:var(--ink);color:#fff;padding:9px 11px;border-radius:6px;font-size:11px;line-height:1.5;width:280px;z-index:100;margin-bottom:5px}
+.cell:hover .tip{display:block}
+
+.vcard{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.vhead{padding:13px 15px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.vname{font-weight:600;font-size:13px}
+.vmeta{font-size:11px;color:var(--muted)}
+.vraw{padding:13px 15px;font:11px/1.55 ui-monospace,Menlo,monospace;white-space:pre-wrap;max-height:230px;overflow-y:auto;background:#FCFCFD;color:#475467}
+.trap{padding:8px 15px;background:var(--warn-soft);font-size:11px;color:var(--warn);border-top:1px solid #FDE9CE}
+
+.msg{margin-bottom:14px}
+.q{background:var(--blue-soft);padding:10px 13px;border-radius:8px 8px 8px 2px;display:inline-block;max-width:88%;font-size:13px}
+.a{background:#FCFCFD;border:1px solid var(--line);padding:13px;border-radius:8px;margin-top:8px}
+.plan{background:#101828;color:#98F6C8;padding:9px 11px;border-radius:6px;font:11px/1.5 ui-monospace,monospace;margin:9px 0;white-space:pre-wrap}
+
+.kpi{border:1px solid var(--line);border-radius:9px;padding:15px}
+.kpi .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.kpi .v{font-size:24px;font-weight:700;margin:5px 0 2px}
+.kpi .n{font-size:11px;color:var(--muted)}
+
+.load{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.hide{display:none}
+textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:7px;resize:vertical;font-size:13px}
+.err{background:var(--stop-soft);color:var(--stop);padding:11px;border-radius:7px;font-size:12px;margin-top:12px}
+.note{background:var(--blue-soft);border-left:3px solid var(--blue);padding:11px 13px;font-size:12px;border-radius:0 6px 6px 0;margin-top:14px;color:#1849A9}
+.log{font:11px/1.7 ui-monospace,monospace;color:var(--muted);max-height:190px;overflow-y:auto;background:#FCFCFD;border:1px solid var(--line);border-radius:7px;padding:11px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="logo">Quorum<span>.</span></div>
+    <div class="tag">RFx to award decision, without the spreadsheet</div>
+    <div class="keybox">
+      <span class="dot" id="keydot"></span>
+      <input type="password" id="apikey" placeholder="Anthropic API key">
+    </div>
+  </div>
+</header>
+
+<nav>
+  <div class="nrow">
+    <button class="tab on" data-s="0"><span class="num">1</span>Draft the RFx</button>
+    <button class="tab" data-s="1"><span class="num">2</span>Responses</button>
+    <button class="tab" data-s="2"><span class="num">3</span>Extract</button>
+    <button class="tab" data-s="3"><span class="num">4</span>Compare</button>
+    <button class="tab" data-s="4"><span class="num">5</span>Ask</button>
+    <button class="tab" data-s="5"><span class="num">6</span>Award</button>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============ 1 · RFx BUILDER ============ -->
+<section id="s0">
+  <div class="card pad">
+    <h2>Draft the RFx</h2>
+    <p class="sub">Describe what you need. The co-pilot drafts scope, line items, questionnaire and terms. This is a live model call.</p>
+    <textarea id="rfxin" rows="3">Annual contract for corrugated packaging at our Bangalore fulfilment centre. RSC cartons in 3, 5 and 7 ply, die-cut mailers, corrugated sheets, partitions, waterproof export cartons and telescopic boxes. Roughly 30 SKUs, about 6.5 lakh units a year. Need ISO and FSC certified suppliers with monthly call-off.</textarea>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center">
+      <button class="btn" id="draft">Draft with co-pilot</button>
+      <span id="draftst" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="drafterr"></div>
+  </div>
+
+  <div class="card pad hide" id="rfxout" style="margin-top:20px">
+    <h3>RFx-2026-CP-014 · drafted</h3>
+    <div id="rfxbody"></div>
+    <div class="note">The buyer edits this before it goes out. In this prototype the line items are then fixed to the seeded 30-SKU list so the extraction has something stable to reconcile against.</div>
+    <div style="margin-top:16px"><button class="btn" onclick="go(1)">Send to 5 vendors →</button></div>
+  </div>
+</section>
+
+<!-- ============ 2 · RESPONSES ============ -->
+<section id="s1" class="hide">
+  <div class="card pad">
+    <h2>What came back</h2>
+    <p class="sub">Five vendors, five formats, nine days. Nobody used the template. The email path is stubbed; these are the payloads as they would have arrived.</p>
+    <div id="vlist" class="grid2" style="gap:16px"></div>
+    <div style="margin-top:20px"><button class="btn" onclick="go(2)">Extract all →</button></div>
+  </div>
+</section>
+
+<!-- ============ 3 · EXTRACT ============ -->
+<section id="s2" class="hide">
+  <div class="card pad">
+    <h2>Extraction and normalisation</h2>
+    <p class="sub">The model reads each response and returns structured fields with a confidence state per field. Every unit and currency conversion after that runs in code, not in the model.</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px">
+      <button class="btn" id="ext">Run extraction</button>
+      <span id="extst" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="exterr"></div>
+    <div class="log hide" id="extlog"></div>
+    <div id="extres" style="margin-top:18px"></div>
+  </div>
+
+  <div class="card pad hide" id="repro" style="margin-top:20px;border-color:#FDBA74">
+    <h2>Is the extraction stable?</h2>
+    <p class="sub">A fair question to ask of anything built on a model. Run it again on the two hardest responses and diff the result field by field. If a field moves between runs, the buyer should know which one.</p>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn" id="rerun">Extract again and diff</button>
+      <span id="rerunst" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div id="diffres" style="margin-top:18px"></div>
+    <div style="margin-top:20px"><button class="btn" onclick="go(3)">Go to comparison →</button></div>
+  </div>
+</section>
+
+<!-- ============ 4 · COMPARE ============ -->
+<section id="s3" class="hide">
+  <div class="card pad">
+    <h2>Side by side</h2>
+    <p class="sub">Same lines, same unit, same currency. Hover any cell to see where the number came from and what was assumed to get it there.</p>
+    <div class="grid3" id="kpis" style="margin-bottom:20px"></div>
+    <div style="display:flex;gap:16px;font-size:12px;margin-bottom:14px;flex-wrap:wrap">
+      <span><span class="pill p-ok">Confident</span> read directly, no assumptions</span>
+      <span><span class="pill p-warn">Inferred</span> converted or assumed, reason shown</span>
+      <span><span class="pill p-stop">Needs a human</span> not resolvable from the response</span>
+    </div>
+    <div style="overflow-x:auto"><div id="ctable"></div></div>
+    <div style="margin-top:20px"><button class="btn" onclick="go(4)">Ask questions →</button></div>
+  </div>
+</section>
+
+<!-- ============ 5 · ASK ============ -->
+<section id="s4" class="hide">
+  <div class="card pad">
+    <h2>Ask the comparison</h2>
+    <p class="sub">The model turns the question into a plan. The plan runs in code against the extracted table. The model never does the arithmetic.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px" id="sugg"></div>
+    <div id="chat" style="max-height:520px;overflow-y:auto;margin-bottom:16px"></div>
+    <div style="display:flex;gap:10px">
+      <input id="qin" placeholder="Ask anything about the five quotes…" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:7px">
+      <button class="btn" id="ask">Ask</button>
+    </div>
+    <div id="askerr"></div>
+
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
+      <h3>Does it give the same answer twice?</h3>
+      <p class="sub" style="margin-bottom:12px">The VP's question, asked three times. The model plans it fresh each time. The numbers come from code, so they should not move at all.</p>
+      <button class="btn ghost" id="det">Ask the same question 3 times</button>
+      <span id="detst" style="font-size:12px;color:var(--muted);margin-left:10px"></span>
+      <div id="detres" style="margin-top:16px"></div>
+    </div>
+
+    <div style="margin-top:20px"><button class="btn ghost" onclick="go(5)">Award decision →</button></div>
+  </div>
+</section>
+
+<!-- ============ 6 · AWARD ============ -->
+<section id="s5" class="hide">
+  <div class="card pad">
+    <h2>Award recommendation</h2>
+    <p class="sub">Every number traces to an extracted field. Anything the system could not resolve is listed as an open item rather than estimated.</p>
+    <div id="award"></div>
+  </div>
+</section>
+
+</main>
+
+<script src="data.js"></script>
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const MODEL = 'claude-sonnet-4-6';
+const USD_INR = 88.20;   // single source of truth, shown to the buyer
+let KEY = '';
+
+document.getElementById('apikey').addEventListener('input', e=>{
+  KEY = e.target.value.trim();
+  document.getElementById('keydot').classList.toggle('on', KEY.length > 10);
+});
+
+// ============================================================
+// LLM — one entry point. Everything the model does goes through here.
+// ============================================================
+async function llm(system, user, maxTokens=4000){
+  const body = { model: MODEL, max_tokens: maxTokens, system, messages:[{role:'user',content:user}] };
+  const headers = {'Content-Type':'application/json'};
+  if (KEY) { headers['x-api-key'] = KEY; headers['anthropic-version'] = '2023-06-01'; headers['anthropic-dangerous-direct-browser-access']='true'; }
+  const r = await fetch('https://api.anthropic.com/v1/messages', {method:'POST', headers, body: JSON.stringify(body)});
+  if(!r.ok){ throw new Error('API '+r.status+' — '+(await r.text()).slice(0,200)); }
+  const d = await r.json();
+  return d.content.filter(c=>c.type==='text').map(c=>c.text).join('\n');
+}
+function parseJSON(t){
+  let s = t.trim().replace(/^```(json)?/,'').replace(/```$/,'').trim();
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if(a>=0&&b>a) s = s.slice(a,b+1);
+  return JSON.parse(s);
+}
+
+// ============================================================
+// NAV
+// ============================================================
+let unlocked = 0;
+function go(n){
+  if(n>unlocked) unlocked = n;
+  document.querySelectorAll('section').forEach((s,i)=>s.classList.toggle('hide', i!==n));
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('on', i===n);
+    t.classList.toggle('done', i<unlocked);
+    t.disabled = i>unlocked;
+  });
+  window.scrollTo(0,0);
+  if(n===1) renderVendors();
+}
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(+t.dataset.s));
+document.querySelectorAll('.tab').forEach((t,i)=>{ if(i>0) t.disabled=true; });
+
+// ============================================================
+// 1 · RFx CO-PILOT — real call
+// ============================================================
+document.getElementById('draft').onclick = async ()=>{
+  const btn = document.getElementById('draft'), st = document.getElementById('draftst');
+  const err = document.getElementById('drafterr'); err.innerHTML='';
+  btn.disabled=true; st.innerHTML='<span class="load"></span> drafting…';
+  try{
+    const out = await llm(
+      `You are a procurement co-pilot drafting an RFx. Return ONLY valid JSON:
+{"title":"","scope":"2-3 sentences","categories":["..."],"questionnaire":[{"id":"Q1","q":"","critical":true}],"terms":["..."],"award_criteria":["..."]}
+Ask for exactly 5 questionnaire items. Mark certifications as critical. Terms should cover currency, delivery basis, payment, validity, price revision. Be specific to Indian corrugated packaging procurement.`,
+      document.getElementById('rfxin').value);
+    const r = parseJSON(out);
+    document.getElementById('rfxbody').innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px">${r.title||'Corrugated Packaging — Annual Contract'}</div>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">${r.scope||''}</p>
+      <div class="grid2">
+        <div>
+          <h3>Questionnaire</h3>
+          ${(r.questionnaire||[]).map(q=>`<div style="padding:7px 0;border-bottom:1px solid #F2F4F7;font-size:13px">
+            <b>${q.id}</b> ${q.q} ${q.critical?'<span class="pill p-stop">critical</span>':''}</div>`).join('')}
+        </div>
+        <div>
+          <h3>Terms requested</h3>
+          ${(r.terms||[]).map(t=>`<div style="padding:7px 0;border-bottom:1px solid #F2F4F7;font-size:13px">${t}</div>`).join('')}
+          <h3 style="margin-top:16px">Award criteria</h3>
+          ${(r.award_criteria||[]).map(t=>`<div style="padding:7px 0;border-bottom:1px solid #F2F4F7;font-size:13px">${t}</div>`).join('')}
+        </div>
+      </div>
+      <h3 style="margin-top:18px">Line items — ${LINE_ITEMS.length} SKUs</h3>
+      <div style="max-height:210px;overflow-y:auto;border:1px solid var(--line);border-radius:7px">
+        <table><thead><tr><th>Code</th><th>Description</th><th style="text-align:right">Annual qty</th></tr></thead><tbody>
+        ${LINE_ITEMS.map(l=>`<tr><td class="mono">${l.code}</td><td>${l.desc}</td><td class="mono" style="text-align:right">${l.qty.toLocaleString('en-IN')}</td></tr>`).join('')}
+        </tbody></table></div>`;
+    document.getElementById('rfxout').classList.remove('hide');
+    st.textContent='drafted';
+  }catch(e){
+    err.innerHTML = `<div class="err"><b>Model call failed.</b> ${e.message}<br>Add a valid Anthropic API key in the header. The prototype makes no offline fallback on purpose — the brief said the AI loops must be real.</div>`;
+    st.textContent='';
+  }
+  btn.disabled=false;
+};
+
+// ============================================================
+// 2 · VENDOR RESPONSES
+// ============================================================
+const ICONS = {sheet:'▦',pdf:'▤',doc:'▥',photo:'▣',mail:'✉'};
+function renderVendors(){
+  document.getElementById('vlist').innerHTML = VENDORS.map(v=>`
+    <div class="vcard">
+      <div class="vhead">
+        <div style="font-size:19px;color:var(--muted)">${ICONS[v.icon]}</div>
+        <div style="flex:1">
+          <div class="vname">${v.name}</div>
+          <div class="vmeta">${v.format} · ${v.location} · arrived ${v.received}</div>
+        </div>
+      </div>
+      <div class="vraw">${v.raw.replace(/</g,'&lt;')}</div>
+      ${v.traps.length?`<div class="trap"><b>What makes this one hard:</b> ${v.traps.join(' · ')}</div>`:''}
+    </div>`).join('');
+}
+
+// ============================================================
+// 3 · EXTRACTION — real call per vendor
+// ============================================================
+let EX = {};
+
+const EXTRACT_SYS = `You extract structured commercial data from a vendor's response to a procurement RFx.
+
+You will be given the RFx line item list and one vendor's raw response, in whatever format it arrived.
+
+Return ONLY valid JSON in this exact shape:
+{
+ "vendor_id":"",
+ "currency":"INR|USD|unknown",
+ "unit_basis":"per_100_pieces|per_box|per_kg|unknown",
+ "unit_basis_evidence":"the exact words in the document that told you the unit basis",
+ "freight":"included|extra|unknown",
+ "payment_days": number or null,
+ "validity_days": number or null,
+ "discount": {"exists":bool,"pct":number|null,"condition":"","where_found":""},
+ "lines":[{"code":"CP-001","price":number|null,"confidence":"high|low|missing","evidence":"where in the doc this came from","note":""}],
+ "questionnaire":{"Q1":{"answer":"","pass":bool|null},"Q2":{...},"Q3":{...},"Q4":{...},"Q5":{...}},
+ "unresolvable":["plain-language list of anything you could NOT determine and a human must resolve"]
+}
+
+RULES, follow them exactly:
+- Do NOT convert currency. Do NOT convert units. Report what the document says. Conversion happens downstream in code.
+- If a line is not quoted, set price null and confidence "missing".
+- If OCR is degraded or a figure is ambiguous, set confidence "low" and say why in note.
+- If a price refers to something you do not have (e.g. "same as last year"), set price null, confidence "missing", and add it to unresolvable.
+- Never guess a number that is not in the document.
+- evidence must be short and quote or point at the actual source location.`;
+
+document.getElementById('ext').onclick = async ()=>{
+  const btn=document.getElementById('ext'), st=document.getElementById('extst');
+  const log=document.getElementById('extlog'), err=document.getElementById('exterr');
+  err.innerHTML=''; log.classList.remove('hide'); log.innerHTML=''; EX={};
+  btn.disabled=true;
+  const itemList = LINE_ITEMS.map(l=>`${l.code} | ${l.desc} | qty ${l.qty}`).join('\n');
+  try{
+    for(const v of VENDORS){
+      st.innerHTML=`<span class="load"></span> reading ${v.name}…`;
+      log.innerHTML += `→ ${v.name} (${v.format})\n`; log.scrollTop=log.scrollHeight;
+      const out = await llm(EXTRACT_SYS,
+        `RFx LINE ITEMS:\n${itemList}\n\nQUESTIONNAIRE:\n${QUESTIONNAIRE.map(q=>q.id+' '+q.q).join('\n')}\n\nVENDOR ID: ${v.id}\nVENDOR: ${v.name}\nFORMAT: ${v.format}\n\nRAW RESPONSE:\n${v.raw}`, 8000);
+      EX[v.id] = parseJSON(out);
+      const got = EX[v.id].lines.filter(l=>l.price!==null).length;
+      log.innerHTML += `  ${got}/30 lines · ${EX[v.id].currency} · ${EX[v.id].unit_basis} · ${EX[v.id].unresolvable.length} open\n`;
+      log.scrollTop=log.scrollHeight;
+    }
+    st.textContent='done';
+    normalise();
+    renderExtract();
+    document.getElementById('repro').classList.remove('hide');
+    unlocked = Math.max(unlocked,3);
+    document.querySelectorAll('.tab').forEach((t,i)=>{ t.disabled = i>unlocked; });
+    renderCompare();
+  }catch(e){
+    err.innerHTML=`<div class="err"><b>Extraction failed.</b> ${e.message}</div>`;
+    st.textContent='';
+  }
+  btn.disabled=false;
+};
+
+// ============================================================
+// NORMALISATION — code only. This is the load-bearing decision.
+// ============================================================
+let NORM = {};
+function normalise(){
+  NORM = {};
+  for(const v of VENDORS){
+    const e = EX[v.id]; if(!e) continue;
+    const steps = [];
+    let cur = 1, curNote = '';
+    if(e.currency === 'USD'){ cur = USD_INR; curNote = `USD → INR at ${USD_INR}`; steps.push(curNote + ' (rate set by buyer, applied in code)'); }
+
+    const rows = {};
+    for(const l of e.lines){
+      const item = LINE_ITEMS.find(i=>i.code===l.code);
+      if(!item) continue;
+      if(l.price === null){ rows[l.code] = {v:null,state:'missing',why:l.note||'not quoted',src:l.evidence||''}; continue; }
+
+      let val = l.price * cur, state = l.confidence==='high'?'ok':'inf', why = [], src = l.evidence||'';
+      if(curNote) { why.push(curNote); state='inf'; }
+
+      // unit basis → everything lands as INR per 100 pieces
+      if(e.unit_basis === 'per_box'){ val = val * 100; why.push('quoted per box, ×100 to reach per-100-pieces'); state='inf'; }
+      else if(e.unit_basis === 'per_kg'){ rows[l.code] = {v:null,state:'missing',why:'priced per kg; no weight per unit supplied, cannot convert',src}; continue; }
+      else if(e.unit_basis === 'unknown'){ state='inf'; why.push('unit basis not stated, assumed per 100 pieces'); }
+
+      if(l.confidence==='low'){ state='inf'; why.push(l.note||'low read confidence'); }
+      rows[l.code] = {v:val,state,why:why.join(' · '),src};
+    }
+    NORM[v.id] = {rows, steps, curNote, disc:e.discount, freight:e.freight, q:e.questionnaire, unres:e.unresolvable, raw:e};
+  }
+}
+
+function renderExtract(){
+  document.getElementById('extres').innerHTML = VENDORS.map(v=>{
+    const e = EX[v.id], n = NORM[v.id]; if(!e) return '';
+    const got = e.lines.filter(l=>l.price!==null).length;
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="vhead"><div style="flex:1"><span class="vname">${v.name}</span>
+        <span class="pill ${got===30?'p-ok':'p-warn'}" style="margin-left:8px">${got}/30 lines</span>
+        <span class="pill p-grey" style="margin-left:5px">${e.currency}</span>
+        <span class="pill p-grey" style="margin-left:5px">${e.unit_basis.replace(/_/g,' ')}</span>
+        ${e.discount&&e.discount.exists?`<span class="pill p-blue" style="margin-left:5px">${e.discount.pct}% rebate found</span>`:''}
+      </div></div>
+      <div class="pad" style="font-size:12px">
+        <div style="color:var(--muted);margin-bottom:8px"><b>Unit basis read from:</b> "${e.unit_basis_evidence||'—'}"</div>
+        ${e.discount&&e.discount.exists?`<div style="color:var(--muted);margin-bottom:8px"><b>Discount:</b> ${e.discount.pct}% — ${e.discount.condition} <i>(found in: ${e.discount.where_found})</i></div>`:''}
+        ${n.steps.length?`<div style="color:var(--muted);margin-bottom:8px"><b>Applied in code:</b> ${n.steps.join(' · ')}</div>`:''}
+        ${e.unresolvable.length?`<div style="background:var(--stop-soft);color:var(--stop);padding:9px;border-radius:6px"><b>Needs a human (${e.unresolvable.length}):</b><br>${e.unresolvable.map(u=>'• '+u).join('<br>')}</div>`:'<div style="color:var(--ok)">Nothing unresolved.</div>'}
+      </div></div>`;
+  }).join('');
+}
+
+// ============================================================
+// 4 · COMPARISON
+// ============================================================
+function lineTotal(vid, code){
+  const r = NORM[vid]?.rows[code]; const item = LINE_ITEMS.find(i=>i.code===code);
+  if(!r || r.v===null) return null;
+  return r.v * item.qty / 100;
+}
+function vendorTotal(vid){
+  let t=0, missing=0;
+  for(const i of LINE_ITEMS){ const x=lineTotal(vid,i.code); if(x===null) missing++; else t+=x; }
+  return {total:t, missing};
+}
+function fmt(n){ return n===null?'—':'₹'+Math.round(n).toLocaleString('en-IN'); }
+
+function renderCompare(){
+  const tot = {};
+  VENDORS.forEach(v=>tot[v.id]=vendorTotal(v.id));
+  const complete = VENDORS.filter(v=>tot[v.id].missing===0);
+  const cheapest = complete.sort((a,b)=>tot[a.id].total-tot[b.id].total)[0];
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="l">Lowest complete quote</div><div class="v">${cheapest?cheapest.name.split(' ')[0]:'—'}</div>
+      <div class="n">${cheapest?fmt(tot[cheapest.id].total)+' before rebate':'no vendor quoted all 30 lines'}</div></div>
+    <div class="kpi"><div class="l">Vendors with gaps</div><div class="v">${VENDORS.filter(v=>tot[v.id].missing>0).length} of 5</div>
+      <div class="n">${VENDORS.filter(v=>tot[v.id].missing>0).map(v=>v.name.split(' ')[0]+' ('+tot[v.id].missing+')').join(', ')||'none'}</div></div>
+    <div class="kpi"><div class="l">Open items</div><div class="v">${VENDORS.reduce((s,v)=>s+(NORM[v.id]?.unres.length||0),0)}</div>
+      <div class="n">flagged for a human, not estimated</div></div>`;
+
+  let h = `<table><thead><tr><th style="min-width:210px">Line item</th><th style="text-align:right">Qty</th>`;
+  VENDORS.forEach(v=>h+=`<th style="text-align:right;min-width:120px">${v.name.split(' ')[0]}</th>`);
+  h += `</tr></thead><tbody>`;
+
+  for(const it of LINE_ITEMS){
+    const vals = VENDORS.map(v=>NORM[v.id]?.rows[it.code]?.v ?? null).filter(x=>x!==null);
+    const min = vals.length?Math.min(...vals):null;
+    h += `<tr><td><b class="mono">${it.code}</b><br><span style="color:var(--muted);font-size:12px">${it.desc}</span></td>
+          <td class="mono" style="text-align:right;color:var(--muted)">${it.qty.toLocaleString('en-IN')}</td>`;
+    VENDORS.forEach(v=>{
+      const r = NORM[v.id]?.rows[it.code];
+      if(!r || r.v===null){
+        h += `<td class="cell miss mono" style="text-align:right">not quoted<div class="tip"><b>${v.name}</b><br>${r?r.why:'no data'}</div></td>`;
+      } else {
+        const isMin = min!==null && Math.abs(r.v-min)<0.01;
+        h += `<td class="cell mono ${r.state==='inf'?'inf':''}" style="text-align:right">
+          <span class="${isMin?'best':''}">₹${r.v.toFixed(0)}</span>
+          <div class="tip"><b>${v.name} · ${it.code}</b><br>
+          Source: ${r.src||'—'}<br>${r.why?'<br><b>Assumed:</b> '+r.why:'<br>Read directly, no conversion.'}</div></td>`;
+      }
+    });
+    h += `</tr>`;
+  }
+
+  h += `<tr style="background:#F9FAFB;font-weight:700"><td>Contract total</td><td></td>`;
+  VENDORS.forEach(v=>{
+    const t = tot[v.id];
+    h += `<td class="mono" style="text-align:right">${t.missing>0?'<span style="color:var(--warn)">partial</span><br>':''}${fmt(t.total)}
+      ${t.missing>0?`<div style="font-size:11px;font-weight:400;color:var(--muted)">${30-t.missing} of 30 lines</div>`:''}</td>`;
+  });
+  h += `</tr>`;
+
+  // qualitative rows
+  const rowsMeta = [
+    ['Freight', v=>NORM[v.id]?.freight||'—'],
+    ['Payment', v=>NORM[v.id]?.raw.payment_days?NORM[v.id].raw.payment_days+' days':'—'],
+    ['Volume rebate', v=>{const d=NORM[v.id]?.disc; return d&&d.exists?`<span class="pill p-blue">${d.pct}%</span><div style="font-size:11px;color:var(--muted)">${d.condition}</div>`:'—';}],
+    ['Q1 ISO 9001', v=>qp(v,'Q1')],
+    ['Q2 FSC CoC', v=>qp(v,'Q2')],
+    ['Q3 Lead time', v=>NORM[v.id]?.q?.Q3?.answer||'—']
+  ];
+  rowsMeta.forEach(([label,fn])=>{
+    h += `<tr><td colspan="2" style="color:var(--muted)">${label}</td>`;
+    VENDORS.forEach(v=>h+=`<td style="text-align:right;font-size:12px">${fn(v)}</td>`);
+    h += `</tr>`;
+  });
+  h += `</tbody></table>`;
+  document.getElementById('ctable').innerHTML = h;
+}
+function qp(v,q){
+  const a = NORM[v.id]?.q?.[q]; if(!a) return '—';
+  return a.pass===true?'<span class="pill p-ok">Yes</span>':a.pass===false?'<span class="pill p-stop">No</span>':'<span class="pill p-warn">unclear</span>';
+}
+
+// ============================================================
+// 5 · ASK — model returns a PLAN, code executes it
+// ============================================================
+const SUGG = [
+  "What if we split it, cheapest per line, but only among vendors who cleared the quality questionnaire?",
+  "Who is cheapest overall and what does it change if Sundar's rebate applies?",
+  "Which vendors did not quote everything, and what is missing?",
+  "Is GlobalCorr actually cheaper once currency is converted?",
+  "What can't you tell me from these quotes?"
+];
+document.getElementById('sugg').innerHTML = SUGG.map(s=>`<button class="btn ghost" style="font-size:12px;padding:7px 12px" onclick="askQ(this.textContent)">${s}</button>`).join('');
+
+const ASK_SYS = `You turn a procurement buyer's question into an executable PLAN. You never do arithmetic yourself.
+
+Return ONLY valid JSON:
+{
+ "intent":"one line, what the buyer is really asking",
+ "answerable": true|false,
+ "cannot_answer_reason":"if answerable is false, say plainly what is missing and what would be needed",
+ "plan":{
+   "operation":"total_by_vendor | cheapest_per_line | filter_then_split | list_gaps | compare_two | list_open_items",
+   "filter_questionnaire":["Q1","Q2"],
+   "vendors":["V1"],
+   "apply_discounts": true|false,
+   "exclude_incomplete": true|false
+ },
+ "framing":"1-3 sentences the buyer reads before the numbers. No numbers in this field.",
+ "caveats":["anything the buyer should know about the reliability of this answer"]
+}
+
+Rules:
+- Put NO numbers in framing or caveats. Code computes every figure.
+- If the question cannot be answered from extracted data, set answerable false and explain. Do not invent.
+- filter_questionnaire means: only include vendors whose answer to those questions passed.`;
+
+document.getElementById('ask').onclick = ()=>askQ(document.getElementById('qin').value);
+document.getElementById('qin').addEventListener('keydown',e=>{if(e.key==='Enter')askQ(e.target.value)});
+
+async function askQ(q){
+  if(!q.trim()) return;
+  document.getElementById('qin').value='';
+  const chat = document.getElementById('chat'), err = document.getElementById('askerr');
+  err.innerHTML='';
+  const id = 'm'+Date.now();
+  chat.innerHTML += `<div class="msg"><div class="q">${q}</div><div class="a" id="${id}"><span class="load"></span> planning…</div></div>`;
+  chat.scrollTop = chat.scrollHeight;
+  try{
+    const summary = VENDORS.map(v=>{
+      const n=NORM[v.id], t=vendorTotal(v.id);
+      return `${v.id} ${v.name}: currency ${n.raw.currency}, unit ${n.raw.unit_basis}, ${30-t.missing}/30 lines quoted, freight ${n.freight}, rebate ${n.disc?.exists?n.disc.pct+'% if '+n.disc.condition:'none'}, Q1 ${n.q?.Q1?.pass}, Q2 ${n.q?.Q2?.pass}, open items: ${n.unres.join('; ')||'none'}`;
+    }).join('\n');
+    const out = await llm(ASK_SYS, `VENDOR SUMMARY (no prices — you do not need them):\n${summary}\n\nBUYER QUESTION: ${q}`);
+    const r = parseJSON(out);
+    document.getElementById(id).innerHTML = execute(r);
+  }catch(e){
+    document.getElementById(id).innerHTML = `<span style="color:var(--stop)">Model call failed: ${e.message}</span>`;
+  }
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function execute(r){
+  let h = `<div class="plan">PLAN · ${r.plan?.operation||'—'}\n${JSON.stringify(r.plan,null,1)}\nexecuted in code, not by the model</div>`;
+  h += `<p style="margin-bottom:10px">${r.framing||''}</p>`;
+  if(r.answerable===false){
+    h += `<div style="background:var(--stop-soft);color:var(--stop);padding:11px;border-radius:6px"><b>I can't answer that reliably.</b><br>${r.cannot_answer_reason}</div>`;
+    return h;
+  }
+  const p = r.plan||{};
+  let pool = VENDORS.slice();
+  if(p.filter_questionnaire?.length) pool = pool.filter(v=>p.filter_questionnaire.every(q=>NORM[v.id]?.q?.[q]?.pass===true));
+  if(p.vendors?.length) pool = pool.filter(v=>p.vendors.includes(v.id));
+  if(p.exclude_incomplete) pool = pool.filter(v=>vendorTotal(v.id).missing===0);
+
+  const op = p.operation;
+  if(op==='list_open_items'){
+    h += `<table><thead><tr><th>Vendor</th><th>What a human has to resolve</th></tr></thead><tbody>`;
+    VENDORS.forEach(v=>{const u=NORM[v.id]?.unres||[]; if(u.length) h+=`<tr><td>${v.name}</td><td>${u.map(x=>'• '+x).join('<br>')}</td></tr>`;});
+    h += `</tbody></table>`;
+  }
+  else if(op==='list_gaps'){
+    h += `<table><thead><tr><th>Vendor</th><th style="text-align:right">Quoted</th><th>Missing lines</th></tr></thead><tbody>`;
+    VENDORS.forEach(v=>{
+      const miss = LINE_ITEMS.filter(i=>lineTotal(v.id,i.code)===null).map(i=>i.code);
+      h+=`<tr><td>${v.name}</td><td class="mono" style="text-align:right">${30-miss.length}/30</td><td class="mono" style="font-size:11px">${miss.join(', ')||'—'}</td></tr>`;
+    });
+    h += `</tbody></table>`;
+  }
+  else if(op==='cheapest_per_line' || op==='filter_then_split'){
+    let split = 0; const alloc = {};
+    h += `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Pool after filter: ${pool.map(v=>v.name.split(' ')[0]).join(', ')||'none'}</div>`;
+    h += `<table><thead><tr><th>Line</th><th style="text-align:right">Qty</th><th>Awarded to</th><th style="text-align:right">Rate/100</th><th style="text-align:right">Line value</th></tr></thead><tbody>`;
+    for(const it of LINE_ITEMS){
+      let best=null;
+      pool.forEach(v=>{const x=NORM[v.id]?.rows[it.code]; if(x&&x.v!==null&&(!best||x.v<best.v)) best={v:x.v,name:v.name,id:v.id,state:x.state};});
+      if(best){ const val = best.v*it.qty/100; split+=val; alloc[best.name]=(alloc[best.name]||0)+val;
+        h+=`<tr><td class="mono">${it.code}</td><td class="mono" style="text-align:right">${it.qty.toLocaleString('en-IN')}</td>
+        <td>${best.name.split(' ')[0]} ${best.state==='inf'?'<span class="pill p-warn">inferred</span>':''}</td>
+        <td class="mono" style="text-align:right">₹${best.v.toFixed(0)}</td><td class="mono" style="text-align:right">${fmt(val)}</td></tr>`;
+      } else {
+        h+=`<tr><td class="mono">${it.code}</td><td class="mono" style="text-align:right">${it.qty.toLocaleString('en-IN')}</td><td colspan="3" style="color:var(--stop)">nobody in the filtered pool quoted this line</td></tr>`;
+      }
+    }
+    h+=`<tr style="background:#F9FAFB;font-weight:700"><td colspan="4">Split award total</td><td class="mono" style="text-align:right">${fmt(split)}</td></tr></tbody></table>`;
+    h+=`<div style="margin-top:12px"><b>Allocation:</b> ${Object.entries(alloc).map(([k,v])=>k.split(' ')[0]+' '+fmt(v)).join(' · ')}</div>`;
+    const single = pool.map(v=>({n:v.name,t:vendorTotal(v.id)})).filter(x=>x.t.missing===0).sort((a,b)=>a.t.total-b.t.total)[0];
+    if(single) h+=`<div style="margin-top:8px;color:var(--muted)">Cheapest single-vendor award in the same pool: ${single.n} at ${fmt(single.t.total)}. Splitting saves ${fmt(single.t.total-split)}.</div>`;
+  }
+  else { // total_by_vendor / compare_two / default
+    h += `<table><thead><tr><th>Vendor</th><th style="text-align:right">Lines</th><th style="text-align:right">Contract total</th><th style="text-align:right">After rebate</th><th>Freight</th></tr></thead><tbody>`;
+    pool.map(v=>{
+      const t=vendorTotal(v.id), d=NORM[v.id]?.disc;
+      const units = LINE_ITEMS.reduce((s,i)=>s+i.qty,0);
+      const applies = p.apply_discounts!==false && d?.exists && d.pct;
+      const after = applies ? t.total*(1-d.pct/100) : t.total;
+      return {v,t,after,applies,d};
+    }).sort((a,b)=>a.after-b.after).forEach(({v,t,after,applies,d})=>{
+      h+=`<tr><td>${v.name}</td><td class="mono" style="text-align:right">${30-t.missing}/30</td>
+      <td class="mono" style="text-align:right">${t.missing?'<span style="color:var(--warn)">partial </span>':''}${fmt(t.total)}</td>
+      <td class="mono" style="text-align:right">${applies?fmt(after)+`<div style="font-size:11px;color:var(--muted)">${d.pct}% applied</div>`:'—'}</td>
+      <td style="font-size:12px">${NORM[v.id]?.freight}</td></tr>`;
+    });
+    h += `</tbody></table>`;
+    h += `<div class="note" style="margin-top:12px">Totals are not directly comparable on price alone: freight basis differs between vendors, and partial quotes are shown as partial rather than extrapolated.</div>`;
+  }
+
+  if(r.caveats?.length) h += `<div style="margin-top:12px;font-size:12px;color:var(--warn)"><b>Caveats:</b> ${r.caveats.map(c=>'• '+c).join('<br>')}</div>`;
+  return h;
+}
+
+// ============================================================
+// REPRODUCIBILITY — extraction varies, computation does not
+// ============================================================
+document.getElementById('rerun').onclick = async ()=>{
+  const btn=document.getElementById('rerun'), st=document.getElementById('rerunst'), out=document.getElementById('diffres');
+  btn.disabled=true; out.innerHTML='';
+  const itemList = LINE_ITEMS.map(l=>`${l.code} | ${l.desc} | qty ${l.qty}`).join('\n');
+  // the two hardest: degraded OCR, and prose in a foreign currency
+  const targets = VENDORS.filter(v=>['V4','V3'].includes(v.id));
+  const run2 = {};
+  try{
+    for(const v of targets){
+      st.innerHTML=`<span class="load"></span> re-reading ${v.name}…`;
+      const o = await llm(EXTRACT_SYS, `RFx LINE ITEMS:\n${itemList}\n\nQUESTIONNAIRE:\n${QUESTIONNAIRE.map(q=>q.id+' '+q.q).join('\n')}\n\nVENDOR ID: ${v.id}\nVENDOR: ${v.name}\nFORMAT: ${v.format}\n\nRAW RESPONSE:\n${v.raw}`, 8000);
+      run2[v.id] = parseJSON(o);
+    }
+    st.textContent='done';
+
+    let h='';
+    for(const v of targets){
+      const a=EX[v.id], b=run2[v.id];
+      const diffs=[]; let same=0;
+      // structural fields
+      [['currency','currency'],['unit_basis','unit basis'],['freight','freight']].forEach(([k,label])=>{
+        if(a[k]!==b[k]) diffs.push({f:label,r1:a[k],r2:b[k],kind:'structural'}); else same++;
+      });
+      // per-line prices
+      for(const l1 of a.lines){
+        const l2=b.lines.find(x=>x.code===l1.code); if(!l2) continue;
+        if(l1.price!==l2.price) diffs.push({f:l1.code,r1:l1.price===null?'not quoted':l1.price,r2:l2.price===null?'not quoted':l2.price,kind:l1.confidence==='high'?'HIGH-confidence field':'flagged low-confidence field'});
+        else same++;
+      }
+      h += `<div class="card" style="margin-bottom:14px"><div class="vhead"><div style="flex:1">
+        <span class="vname">${v.name}</span>
+        <span class="pill ${diffs.length?'p-warn':'p-ok'}" style="margin-left:8px">${diffs.length} field${diffs.length===1?'':'s'} moved</span>
+        <span class="pill p-grey" style="margin-left:5px">${same} identical</span></div></div>
+        <div class="pad">`;
+      if(diffs.length){
+        h += `<table><thead><tr><th>Field</th><th>Run 1</th><th>Run 2</th><th>Was it flagged?</th></tr></thead><tbody>`;
+        diffs.forEach(d=>{
+          const flagged = d.kind.includes('low');
+          h += `<tr><td class="mono">${d.f}</td><td class="mono">${d.r1}</td><td class="mono">${d.r2}</td>
+            <td>${flagged?'<span class="pill p-warn">yes, flagged low</span>':d.kind==='structural'?'<span class="pill p-stop">no — structural</span>':'<span class="pill p-stop">no — read as confident</span>'}</td></tr>`;
+        });
+        h += `</tbody></table>`;
+        const unflagged = diffs.filter(d=>!d.kind.includes('low')).length;
+        h += unflagged
+          ? `<div class="err" style="margin-top:12px"><b>Worth being honest about:</b> ${unflagged} field${unflagged===1?'':'s'} moved that the model did not flag as uncertain. That is a real weakness. In production I would run extraction twice on any response that arrives as an image and treat disagreement between runs as its own uncertainty signal.</div>`
+          : `<div style="margin-top:12px;background:var(--ok-soft);color:var(--ok);padding:11px;border-radius:6px"><b>Every field that moved was already flagged low-confidence.</b> The uncertainty markers are doing their job — nothing shifted that the buyer was told to trust.</div>`;
+      } else {
+        h += `<div style="background:var(--ok-soft);color:var(--ok);padding:11px;border-radius:6px">Identical across both runs.</div>`;
+      }
+      h += `</div></div>`;
+    }
+    h += `<div class="note"><b>Why this screen exists.</b> Everyone's demo works once. The question a buyer with ₹4 crore on the line will actually ask is whether it works the same way twice. Extraction is a model call, so it can move. What must not move is the arithmetic built on top of it — that is the next test.</div>`;
+    out.innerHTML = h;
+  }catch(e){ out.innerHTML=`<div class="err">${e.message}</div>`; st.textContent=''; }
+  btn.disabled=false;
+};
+
+// ---- determinism of the computed answer ----
+document.getElementById('det').onclick = async ()=>{
+  const btn=document.getElementById('det'), st=document.getElementById('detst'), out=document.getElementById('detres');
+  btn.disabled=true; out.innerHTML='';
+  const q = "What if we split it, cheapest per line, but only among vendors who cleared the quality questionnaire?";
+  const runs=[];
+  try{
+    const summary = VENDORS.map(v=>{
+      const n=NORM[v.id], t=vendorTotal(v.id);
+      return `${v.id} ${v.name}: currency ${n.raw.currency}, unit ${n.raw.unit_basis}, ${30-t.missing}/30 lines quoted, freight ${n.freight}, rebate ${n.disc?.exists?n.disc.pct+'%':'none'}, Q1 ${n.q?.Q1?.pass}, Q2 ${n.q?.Q2?.pass}`;
+    }).join('\n');
+    for(let i=1;i<=3;i++){
+      st.innerHTML=`<span class="load"></span> run ${i} of 3…`;
+      const o = await llm(ASK_SYS, `VENDOR SUMMARY (no prices — you do not need them):\n${summary}\n\nBUYER QUESTION: ${q}`);
+      const r = parseJSON(o);
+      // execute the plan and capture the computed total
+      let pool = VENDORS.slice();
+      const p = r.plan||{};
+      if(p.filter_questionnaire?.length) pool = pool.filter(v=>p.filter_questionnaire.every(qq=>NORM[v.id]?.q?.[qq]?.pass===true));
+      let total=0;
+      for(const it of LINE_ITEMS){
+        let best=null;
+        pool.forEach(v=>{const x=NORM[v.id]?.rows[it.code]; if(x&&x.v!==null&&(!best||x.v<best)) best=x.v;});
+        if(best) total += best*it.qty/100;
+      }
+      runs.push({i, framing:(r.framing||'').slice(0,150), pool:pool.map(v=>v.id).join(','), total});
+    }
+    st.textContent='done';
+    const allSame = runs.every(r=>Math.abs(r.total-runs[0].total)<0.01);
+    out.innerHTML = `
+      <table><thead><tr><th>Run</th><th>Model's framing (varies)</th><th>Pool selected</th><th style="text-align:right">Computed total</th></tr></thead><tbody>
+      ${runs.map(r=>`<tr><td class="mono">${r.i}</td>
+        <td style="font-size:12px;color:var(--muted)">${r.framing}…</td>
+        <td class="mono">${r.pool}</td>
+        <td class="mono" style="text-align:right;font-weight:700">${fmt(r.total)}</td></tr>`).join('')}
+      </tbody></table>
+      <div style="margin-top:14px;background:${allSame?'var(--ok-soft)':'var(--stop-soft)'};color:${allSame?'var(--ok)':'var(--stop)'};padding:13px;border-radius:7px">
+        <b>${allSame?'Identical to the rupee, three times out of three.':'The totals moved. That should not happen and I would want to know why.'}</b><br>
+        ${allSame?'The wording changes every run because the model writes it fresh. The number does not change, because the model never touched it. That is the whole reason extraction and computation are separated.':''}
+      </div>`;
+  }catch(e){ out.innerHTML=`<div class="err">${e.message}</div>`; st.textContent=''; }
+  btn.disabled=false;
+};
+
+// ============================================================
+// 6 · AWARD
+// ============================================================
+document.querySelector('[data-s="5"]').addEventListener('click',()=>{
+  if(!Object.keys(NORM).length) return;
+  const rows = VENDORS.map(v=>({v,t:vendorTotal(v.id),n:NORM[v.id]}));
+  const eligible = rows.filter(r=>r.n.q?.Q1?.pass===true && r.n.q?.Q2?.pass===true);
+  const openAll = rows.flatMap(r=>r.n.unres.map(u=>({v:r.v.name,u})));
+  document.getElementById('award').innerHTML = `
+    <div class="grid2">
+      <div>
+        <h3>Eligible on critical questionnaire</h3>
+        ${rows.map(r=>`<div style="padding:9px 0;border-bottom:1px solid #F2F4F7;display:flex;justify-content:space-between">
+          <span>${r.v.name}</span>
+          <span>${r.n.q?.Q1?.pass===true&&r.n.q?.Q2?.pass===true?'<span class="pill p-ok">eligible</span>':'<span class="pill p-stop">excluded</span>'}</span></div>`).join('')}
+        <div style="margin-top:12px;font-size:12px;color:var(--muted)">Exclusions are driven by Q1 and Q2 being marked critical in the RFx, not by price.</div>
+      </div>
+      <div>
+        <h3>Open before this can be awarded</h3>
+        ${openAll.length?openAll.map(o=>`<div style="padding:9px 0;border-bottom:1px solid #F2F4F7;font-size:13px"><b>${o.v}</b><br><span style="color:var(--muted)">${o.u}</span></div>`).join(''):'<div style="color:var(--ok)">Nothing outstanding.</div>'}
+      </div>
+    </div>
+    <div class="note" style="margin-top:20px"><b>What this screen deliberately does not do:</b> it does not produce a single recommended winner. Freight basis differs between vendors, two vendors have unresolved lines, and one rebate is conditional on annual offtake that has not been committed. The system's job is to make the decision defensible, not to make it.</div>`;
+});
+</script>
+</body>
+</html>
