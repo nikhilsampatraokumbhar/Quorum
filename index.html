@@ -575,7 +575,7 @@ Return ONLY valid JSON:
 
 Rules:
 - Put NO numbers in framing or caveats. Code computes every figure.
-- If the question cannot be answered from extracted data, set answerable false and explain. Do not invent.
+- Prices are withheld from you on purpose. The code holds every quoted price, normalised. Set answerable false ONLY when the underlying data is genuinely absent: a vendor never quoted a line, or a per-kg quote has no weight to convert with. Never set answerable false because you cannot see prices in this summary.
 - filter_questionnaire means: only include vendors whose answer to those questions passed.`;
 
 document.getElementById('ask').onclick = ()=>askQ(document.getElementById('qin').value);
@@ -594,7 +594,7 @@ async function askQ(q){
       const n=NORM[v.id], t=vendorTotal(v.id);
       return `${v.id} ${v.name}: currency ${n.raw.currency}, unit ${n.raw.unit_basis}, ${30-t.missing}/30 lines quoted, freight ${n.freight}, rebate ${n.disc?.exists?n.disc.pct+'% if '+n.disc.condition:'none'}, Q1 ${n.q?.Q1?.pass}, Q2 ${n.q?.Q2?.pass}, open items: ${n.unres.join('; ')||'none'}`;
     }).join('\n');
-    const out = await llm(ASK_SYS, `VENDOR SUMMARY (no prices — you do not need them):\n${summary}\n\nBUYER QUESTION: ${q}`);
+    const out = await llm(ASK_SYS, `VENDOR SUMMARY (structural fields only). Every quoted line-item price, already normalised to INR per 100 pieces, is held by the execution code and applied after you return your plan. You do not see prices and do not need them. Never set answerable false on the grounds that prices are absent here:\n${summary}\n\nBUYER QUESTION: ${q}`);
     const r = parseJSON(out);
     document.getElementById(id).innerHTML = execute(r);
   }catch(e){
