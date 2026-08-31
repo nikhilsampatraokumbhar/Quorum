@@ -745,7 +745,7 @@ document.getElementById('det').onclick = async ()=>{
     }).join('\n');
     for(let i=1;i<=3;i++){
       st.innerHTML=`<span class="load"></span> run ${i} of 3…`;
-      const o = await llm(ASK_SYS, `VENDOR SUMMARY (no prices — you do not need them):\n${summary}\n\nBUYER QUESTION: ${q}`);
+            const o = await llm(ASK_SYS, `VENDOR SUMMARY (structural fields only). Every quoted line-item price, already normalised to INR per 100 pieces, is held by the execution code and applied after you return your plan. You do not see prices and do not need them. Never set answerable false on the grounds that prices are absent here:\n${summary}\n\nBUYER QUESTION: ${q}`);
       const r = parseJSON(o);
       // execute the plan and capture the computed total
       let pool = VENDORS.slice();
