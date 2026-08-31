@@ -277,6 +277,7 @@ function go(n){
   });
   window.scrollTo(0,0);
   if(n===1) renderVendors();
+  if(n===5) renderAward();
 }
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>go(+t.dataset.s));
 document.querySelectorAll('.tab').forEach((t,i)=>{ if(i>0) t.disabled=true; });
@@ -780,7 +781,7 @@ document.getElementById('det').onclick = async ()=>{
 // ============================================================
 // 6 · AWARD
 // ============================================================
-document.querySelector('[data-s="5"]').addEventListener('click',()=>{
+function renderAward(){
   if(!Object.keys(NORM).length) return;
   const rows = VENDORS.map(v=>({v,t:vendorTotal(v.id),n:NORM[v.id]}));
   const eligible = rows.filter(r=>r.n.q?.Q1?.pass===true && r.n.q?.Q2?.pass===true);
@@ -799,8 +800,9 @@ document.querySelector('[data-s="5"]').addEventListener('click',()=>{
         ${openAll.length?openAll.map(o=>`<div style="padding:9px 0;border-bottom:1px solid #F2F4F7;font-size:13px"><b>${o.v}</b><br><span style="color:var(--muted)">${o.u}</span></div>`).join(''):'<div style="color:var(--ok)">Nothing outstanding.</div>'}
       </div>
     </div>
-    <div class="note" style="margin-top:20px"><b>What this screen deliberately does not do:</b> it does not produce a single recommended winner. Freight basis differs between vendors, two vendors have unresolved lines, and one rebate is conditional on annual offtake that has not been committed. The system's job is to make the decision defensible, not to make it.</div>`;
-});
+<div class="note" style="margin-top:20px"><b>What this screen deliberately does not do:</b> it does not produce a single recommended winner. Freight basis differs between vendors, two vendors have unresolved lines, and one rebate is conditional on annual offtake that has not been committed. The system's job is to make the decision defensible, not to make it.</div>`;
+}
+  document.querySelector('[data-s="5"]').addEventListener('click', renderAward);
 </script>
 </body>
 </html>
