@@ -576,6 +576,7 @@ Return ONLY valid JSON:
 Rules:
 - Put NO numbers in framing or caveats. Code computes every figure.
 - Prices are withheld from you on purpose. The code holds every quoted price, normalised. Set answerable false ONLY when the underlying data is genuinely absent: a vendor never quoted a line, or a per-kg quote has no weight to convert with. Never set answerable false because you cannot see prices in this summary.
+- Gaps in coverage are never a reason to refuse. The execution code awards each line to the cheapest vendor who quoted it, and prints an explicit "not quoted by anyone in the pool" row for lines nobody covered. A partial-coverage split award is a valid, useful answer. Never set answerable false because some vendors did not quote every line.
 - filter_questionnaire means: only include vendors whose answer to those questions passed.`;
 
 document.getElementById('ask').onclick = ()=>askQ(document.getElementById('qin').value);
